@@ -1,0 +1,5 @@
+[10-Mar-2017 18:20:42 UTC] PHP Parse error:  syntax error, unexpected 'private' (T_PRIVATE) in /home/marrero250/public_html/api.cantv.com/v1/controllers/affiliates.php on line 131
+[10-Mar-2017 18:20:46 UTC] PHP Parse error:  syntax error, unexpected 'private' (T_PRIVATE) in /home/marrero250/public_html/api.cantv.com/v1/controllers/affiliates.php on line 131
+[10-Mar-2017 18:21:03 UTC] PHP Parse error:  syntax error, unexpected 'private' (T_PRIVATE) in /home/marrero250/public_html/api.cantv.com/v1/controllers/affiliates.php on line 131
+[16-Jul-2017 00:43:44 UTC] PHP Notice:  Undefined index: numero_cuenta in /home/marrero250/public_html/api.cantv.com/v1/controllers/affiliates.php on line 142
+[16-Jul-2017 00:43:44 UTC] PHP Notice:  Undefined index: telefono in /home/marrero250/public_html/api.cantv.com/v1/controllers/affiliates.php on line 143
