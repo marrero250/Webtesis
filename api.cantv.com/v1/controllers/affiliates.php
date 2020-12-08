@@ -1,6 +1,4 @@
 ﻿<?php
-
-
 require_once 'data/MysqlManager.php';
 
 /**
@@ -9,11 +7,9 @@ require_once 'data/MysqlManager.php';
 class affiliates {
 
     public static function get($urlSegments) {
-
     }
 
     public static function post($urlSegments) {
-
         if (!isset($urlSegments[0])) {
             throw new ApiException(
                 400,
@@ -30,6 +26,9 @@ class affiliates {
                 break;
             case "login":
                 return self::authAffiliate();
+                break;
+            case "update":
+                return self::updateAffiliate();
                 break;
             default:
                 throw new ApiException(
@@ -99,62 +98,94 @@ class affiliates {
         }
     }
 
+    private static function updateAffiliate() {
+        // Obtener parámetros de la petición
+        $parameters = file_get_contents('php://input');
+        $decodedParameters = json_decode($parameters, true);
+
+        // Controlar posible error de parsing JSON
+        if (json_last_error() != JSON_ERROR_NONE) {
+            $internalServerError = new ApiException(
+                500,
+                0,
+                "Error interno en el servidor. Contacte al administrador",
+                "http://localhost",
+                "Error de parsing JSON. Causa: " . json_last_error_msg());
+            throw $internalServerError;
+        }
+
+        // Insertar afiliado
+        $dbResult = self::updateAffiliateData($decodedParameters);
+
+        // Procesar resultado de la inserción
+        if ($dbResult) {
+            return ["status" => 201, "message" => "Data actualizada"];
+        } else {
+            throw new ApiException(
+                500,
+                0,
+                "Error del servidor",
+                "http://localhost",
+                "Error en la base de datos al ejecutar la actualizacion del afiliado.");
+        }
+    }
+
     private static function authAffiliate() {
+        // Obtener parámetros de la petición
+        $parameters = file_get_contents('php://input');
+        $decodedParameters = json_decode($parameters, true);
 
-    // Obtener parámetros de la petición
-    $parameters = file_get_contents('php://input');
-    $decodedParameters = json_decode($parameters, true);
+        // Controlar posible error de parsing JSON
+        if (json_last_error() != JSON_ERROR_NONE) {
+            $internalServerError = new ApiException(500, 0,
+                "Error interno en el servidor. Contacte al administrador",
+                "http://localhost",
+                "Error de parsing JSON. Causa: " . json_last_error_msg());
+            throw $internalServerError;
+        }
 
-    // Controlar posible error de parsing JSON
-    if (json_last_error() != JSON_ERROR_NONE) {
-        $internalServerError = new ApiException(500, 0,
-            "Error interno en el servidor. Contacte al administrador",
-            "http://localhost",
-            "Error de parsing JSON. Causa: " . json_last_error_msg());
-        throw $internalServerError;
+        // Verificar integridad de datos
+        if (!isset($decodedParameters["id"]) ||
+            !isset($decodedParameters["password"])
+        ) {
+            throw new ApiException(
+                400,
+                0,
+                "Las credenciales del afiliado deben estar definidas correctamente",
+                "http://localhost",
+                "El atributo \"id\" o \"password\" o ambos, están vacíos o no definidos"
+            );
+        }
+
+        $userId = $decodedParameters["id"];
+        $password = $decodedParameters["password"];
+
+        // Buscar usuario en la tabla
+        $dbResult = self::findAffiliateByCredentials($userId, $password);
+
+        // Procesar resultado de la consulta
+        if ($dbResult != NULL) {
+            return [
+                "status" => 200,
+                "id" => $dbResult["id"],
+                "name" => $dbResult["name"],
+                "numero_cuenta" => $dbResult["numero_cuenta"],
+                "telefono" => $dbResult["telefono"],
+                "address" => $dbResult["address"],
+                "gender" => $dbResult["gender"],
+                "token" => $dbResult["token"]
+            ];
+        } else {
+            throw new ApiException(
+                400,
+                4000,
+                "Número de identificación o contraseña inválidos",
+                "http://localhost",
+                "Puede que no exista un usuario creado con el id:$userId o que la contraseña:$password sea incorrecta."
+            );
+        }
     }
 
-    // Verificar integridad de datos
-    if (!isset($decodedParameters["id"]) ||
-        !isset($decodedParameters["password"])
-    ) {
-        throw new ApiException(
-            400,
-            0,
-            "Las credenciales del afiliado deben estar definidas correctamente",
-            "http://localhost",
-            "El atributo \"id\" o \"password\" o ambos, están vacíos o no definidos"
-        );
-    }
-
-    $userId = $decodedParameters["id"];
-    $password = $decodedParameters["password"];
-
-    // Buscar usuario en la tabla
-    $dbResult = self::findAffiliateByCredentials($userId, $password);
-
-    // Procesar resultado de la consulta
-    if ($dbResult != NULL) {
-        return [
-            "status" => 200,
-            "id" => $dbResult["id"],
-            "name" => $dbResult["name"],
-            "numero_cuenta" => $dbResult["numero_cuenta"],
-            "telefono" => $dbResult["telefono"],
-            "address" => $dbResult["address"],
-            "gender" => $dbResult["gender"],
-            "token" => $dbResult["token"]
-        ];
-    } else {
-        throw new ApiException(
-            400,
-            4000,
-            "Número de identificación o contraseña inválidos",
-            "http://localhost",
-            "Puede que no exista un usuario creado con el id:$userId o que la contraseña:$password sea incorrecta."
-        );
-    }
-}
     private static function insertAffiliate($decodedParameters) {
         //Extraer datos del afiliado
         $id = $decodedParameters["id"];
@@ -202,46 +233,93 @@ class affiliates {
         }
     }
 
-  private static function findAffiliateByCredentials($userId, $password) {
-    try {
-        $pdo = MysqlManager::get()->getDb();
+    private static function findAffiliateByCredentials($userId, $password) {
+        try {
+            $pdo = MysqlManager::get()->getDb();
 
-        // Componer sentencia SELECT
-        $sentence = "SELECT * FROM affiliate WHERE id=?";
+            // Componer sentencia SELECT
+            $sentence = "SELECT * FROM affiliate WHERE id=?";
 
-        // Preparar sentencia
-        $preparedSentence = $pdo->prepare($sentence);
-        $preparedSentence->bindParam(1, $userId, PDO::PARAM_INT);
+            // Preparar sentencia
+            $preparedSentence = $pdo->prepare($sentence);
+            $preparedSentence->bindParam(1, $userId, PDO::PARAM_INT);
 
-        // Ejecutar sentencia
-        if ($preparedSentence->execute()) {
-            $affiliateData = $preparedSentence->fetch(PDO::FETCH_ASSOC);
+            // Ejecutar sentencia
+            if ($preparedSentence->execute()) {
+                $affiliateData = $preparedSentence->fetch(PDO::FETCH_ASSOC);
 
-            // Verificar contraseña
-            if (password_verify($password, $affiliateData["hash_password"])) {
-                return $affiliateData;
+                // Verificar contraseña
+                if (password_verify($password, $affiliateData["hash_password"])) {
+                    return $affiliateData;
+                } else {
+                    return null;
+                }
+
             } else {
-                return null;
+                throw new ApiException(
+                    500,
+                    5000,
+                    "Error de base de datos en el servidor",
+                    "http://localhost",
+                    "Hubo un error ejecutando una sentencia SQL en la base de datos. Detalles:" . $pdo->errorInfo()[2]
+                );
             }
 
-        } else {
+        } catch (PDOException $e) {
             throw new ApiException(
                 500,
-                5000,
+                0,
                 "Error de base de datos en el servidor",
-                "http://localhost",
-                "Hubo un error ejecutando una sentencia SQL en la base de datos. Detalles:" . $pdo->errorInfo()[2]
-            );
+                "http://localhost.com",
+                "Ocurrió el siguiente error al consultar el afiliado: " . $e->getMessage());
         }
-
-    } catch (PDOException $e) {
-        throw new ApiException(
-            500,
-            0,
-            "Error de base de datos en el servidor",
-            "http://localhost.com",
-            "Ocurrió el siguiente error al consultar el afiliado: " . $e->getMessage());
     }
-}
+
+    private static function updateAffiliateData($decodedParameters) {
+        try {
+            $pdo = MysqlManager::get()->getDb();
+
+            //Extraer datos del Array
+            $name = $decodedParameters["name"];
+            $numero_cuenta = $decodedParameters["numero_cuenta"];
+            $telefono = $decodedParameters["telefono"];
+            $address = $decodedParameters["address"];
+            $gender = $decodedParameters["gender"];
+    
+            // Componer sentencia SELECT
+            $sentence = "UPDATE 'affiliate' SET
+            'name' = '$name'
+            'numero_cuenta' = '$numero_cuenta'
+            'telefono' = '$telefono'
+            'address' = '$address'
+            'gender' = '$gender'";
+    
+            // Preparar sentencia
+            $preparedSentence = $pdo->prepare($sentence);
+
+    
+            // Ejecutar sentencia
+            if ($preparedSentence->execute()) {
+                return true;
+    
+            } else {
+                throw new ApiException(
+                    500,
+                    5000,
+                    "Error de base de datos en el servidor",
+                    "http://localhost",
+                    "Hubo un error ejecutando una sentencia SQL en la base de datos. Detalles:" . $pdo->errorInfo()[2]
+                );
+            }
+    
+        } catch (PDOException $e) {
+            throw new ApiException(
+                500,
+                0,
+                "Error de base de datos en el servidor",
+                "http://localhost.com",
+                "Ocurrió el siguiente error al consultar el afiliado: " . $e->getMessage());
+        }
+    }
 
 }
